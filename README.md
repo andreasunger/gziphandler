@@ -41,7 +41,7 @@ func main() {
 
 ## License
 
-[Apache 2.0] [license].
+[Apache 2.0][license].
 
 [docs]:     https://godoc.org/github.com/tmthrgd/gziphandler
 [license]:  https://github.com/tmthrgd/gziphandler/blob/master/LICENSE.md
