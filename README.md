@@ -1,17 +1,20 @@
 Gzip Handler
 ============
 
+[![GoDoc](https://godoc.org/github.com/tmthrgd/gziphandler?status.svg)](https://godoc.org/github.com/tmthrgd/gziphandler)
+[![Build Status](https://travis-ci.org/tmthrgd/gziphandler.svg?branch=master)](https://travis-ci.org/tmthrgd/gziphandler)
+[![Go Report Card](https://goreportcard.com/badge/github.com/tmthrgd/gziphandler)](https://goreportcard.com/report/github.com/tmthrgd/gziphandler)
+
 This is a tiny Go package which wraps HTTP handlers to transparently gzip the
 response body, for clients which support it. Although it's usually simpler to
 leave that to a reverse proxy (like nginx or Varnish), this package is useful
 when that's undesirable.
 
-
 ## Usage
 
-Call `GzipHandler` with any handler (an object which implements the
-`http.Handler` interface), and it'll return a new handler which gzips the
-response. For example:
+Call `Gzip` with any handler (an object which implements the `http.Handler`
+interface), and it'll return a new handler which gzips the response. For
+example:
 
 ```go
 package main
@@ -19,6 +22,7 @@ package main
 import (
 	"io"
 	"net/http"
+
 	"github.com/tmthrgd/gziphandler"
 )
 
@@ -28,25 +32,16 @@ func main() {
 		io.WriteString(w, "Hello, World")
 	})
 
-	withGz := gziphandler.GzipHandler(withoutGz)
+	withGz := gziphandler.Gzip(withoutGz)
 
 	http.Handle("/", withGz)
 	http.ListenAndServe("0.0.0.0:8000", nil)
 }
 ```
 
-
-## Documentation
-
-The docs can be found at [godoc.org] [docs], as usual.
-
-
 ## License
 
 [Apache 2.0] [license].
-
-
-
 
 [docs]:     https://godoc.org/github.com/tmthrgd/gziphandler
 [license]:  https://github.com/tmthrgd/gziphandler/blob/master/LICENSE.md
