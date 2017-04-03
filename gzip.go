@@ -248,22 +248,23 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 			}
 		}
 
-		if acceptsGzip {
-			gw := &gzipResponseWriter{
-				ResponseWriter: w,
-
-				index: index,
-
-				code: http.StatusOK,
-
-				minSize: minSize,
-			}
-			defer gw.Close()
-
-			h.ServeHTTP(gw, r)
-		} else {
+		if !acceptsGzip {
 			h.ServeHTTP(w, r)
+			return
 		}
+
+		gw := &gzipResponseWriter{
+			ResponseWriter: w,
+
+			index: index,
+
+			code: http.StatusOK,
+
+			minSize: minSize,
+		}
+		defer gw.Close()
+
+		h.ServeHTTP(gw, r)
 	}), nil
 }
 
