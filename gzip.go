@@ -2,7 +2,6 @@ package gziphandler
 
 import (
 	"compress/gzip"
-	"fmt"
 	"net/http"
 	"sync"
 
@@ -236,19 +235,14 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // at the default compression level. The resource will not be compressed unless
 // it exceeds 512 bytes.
 func Gzip(h http.Handler) http.Handler {
-	h, err := GzipWithLevel(h, gzip.DefaultCompression)
-	if err != nil {
-		panic(err)
-	}
-
-	return h
+	return GzipWithLevel(h, gzip.DefaultCompression)
 }
 
 // GzipWithLevel wraps an HTTP handler, to transparently gzip the response
 // body if the client supports it (via the Accept-Encoding header). This will
 // compress at the given gzip compression level. The resource will not be
 // compressed unless it exceeds 512 bytes.
-func GzipWithLevel(h http.Handler, level int) (http.Handler, error) {
+func GzipWithLevel(h http.Handler, level int) http.Handler {
 	return GzipWithLevelAndMinSize(h, level, 512)
 }
 
@@ -256,13 +250,13 @@ func GzipWithLevel(h http.Handler, level int) (http.Handler, error) {
 // response body if the client supports it (via the Accept-Encoding header).
 // This will compress at the given gzip compression level. The resource will
 // not be compressed unless it is larger than minSize.
-func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, error) {
+func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) http.Handler {
 	if level != gzip.DefaultCompression && (level < gzip.BestSpeed || level > gzip.BestCompression) {
-		return nil, fmt.Errorf("invalid compression level requested: %d", level)
+		panic("invalid compression level requested")
 	}
 
 	if minSize < 0 {
-		return nil, fmt.Errorf("minimum size must be more than zero")
+		panic("minimum size must be more than zero")
 	}
 
 	return &handler{
@@ -270,7 +264,7 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 
 		index:   poolIndex(level),
 		minSize: minSize,
-	}, nil
+	}
 }
 
 type responseWriterFlusher interface {
