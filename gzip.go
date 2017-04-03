@@ -56,7 +56,7 @@ type gzipResponseWriter struct {
 
 	code int // Saves the WriteHeader value.
 
-	minSize      int    // Specifed the minimum response size to gzip. If the response length is bigger than this value, it is compressed.
+	minSize      int    // Specified the minimum response size to gzip. If the response length is bigger than this value, it is compressed.
 	buf          []byte // Holds the first part of the write before reaching the minSize or the end of the write.
 	bytesWritten int    // Keep trace of the numbers of bytes written.
 }
@@ -110,12 +110,12 @@ func (w *gzipResponseWriter) startGzip() (int, error) {
 	// Initialize the GZIP response.
 	w.init()
 
-	// Flush the buffer into the gzip reponse.
+	// Flush the buffer into the gzip response.
 	n, err := w.gw.Write(w.buf)
 	// Empty the buffer.
 	w.buf = nil
 
-	// Return the numbers of bytes writen and the error if any.
+	// Return the numbers of bytes written and the error if any.
 	return n, err
 }
 
