@@ -81,8 +81,11 @@ func (w *responseWriter) startGzip() error {
 	// Write the header to gzip response.
 	w.ResponseWriter.WriteHeader(w.code)
 
-	// Initialize the GZIP response.
-	w.init()
+	// Bytes written during ServeHTTP are redirected to
+	// this gzip writer before being written to the
+	// underlying response.
+	w.gw = w.pool.Get().(*gzip.Writer)
+	w.gw.Reset(w.ResponseWriter)
 
 	if w.buf == nil {
 		return nil
@@ -101,18 +104,6 @@ func (w *responseWriter) startGzip() error {
 // GZIP effective writes.
 func (w *responseWriter) WriteHeader(code int) {
 	w.code = code
-}
-
-// init graps a new gzip writer from the gzipWriterPool and
-// writes the correct content encoding header.
-func (w *responseWriter) init() {
-	// Bytes written during ServeHTTP are redirected to
-	// this gzip writer before being written to the
-	// underlying response.
-	gzw := w.pool.Get().(*gzip.Writer)
-	gzw.Reset(w.ResponseWriter)
-
-	w.gw = gzw
 }
 
 // Close will close the gzip.Writer and will put it back in
