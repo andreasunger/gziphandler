@@ -174,6 +174,63 @@ func (w *gzipResponseWriter) Flush() {
 	}
 }
 
+type handler struct {
+	http.Handler
+
+	index   int
+	minSize int
+}
+
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	hdr := w.Header()
+	hdr["Vary"] = append(hdr["Vary"], "Accept-Encoding")
+
+	var acceptsGzip bool
+	for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
+		if spec.Value == "gzip" && spec.Q > 0 {
+			acceptsGzip = true
+			break
+		}
+	}
+
+	if !acceptsGzip {
+		h.Handler.ServeHTTP(w, r)
+		return
+	}
+
+	gw := &gzipResponseWriter{
+		ResponseWriter: w,
+
+		index: h.index,
+
+		code: http.StatusOK,
+
+		minSize: h.minSize,
+	}
+	defer gw.Close()
+
+	var rw http.ResponseWriter = gw
+
+	c, cok := w.(http.CloseNotifier)
+	hj, hok := w.(http.Hijacker)
+	p, pok := w.(http.Pusher)
+
+	switch {
+	case cok && hok:
+		rw = &closeNotifyHijackResponseWriter{gw, c, hj}
+	case cok && pok:
+		rw = &closeNotifyPusherResponseWriter{gw, c, p}
+	case cok:
+		rw = &closeNotifyResponseWriter{gw, c}
+	case hok:
+		rw = &hijackResponseWriter{gw, hj}
+	case pok:
+		rw = &pusherResponseWriter{gw, p}
+	}
+
+	h.Handler.ServeHTTP(rw, r)
+}
+
 // Gzip wraps an HTTP handler, to transparently gzip the response body if
 // the client supports it (via the Accept-Encoding header). This will compress
 // at the default compression level. The resource will not be compressed unless
@@ -208,57 +265,12 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 		return nil, fmt.Errorf("minimum size must be more than zero")
 	}
 
-	index := poolIndex(level)
+	return &handler{
+		Handler: h,
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hdr := w.Header()
-		hdr["Vary"] = append(hdr["Vary"], "Accept-Encoding")
-
-		var acceptsGzip bool
-		for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
-			if spec.Value == "gzip" && spec.Q > 0 {
-				acceptsGzip = true
-				break
-			}
-		}
-
-		if !acceptsGzip {
-			h.ServeHTTP(w, r)
-			return
-		}
-
-		gw := &gzipResponseWriter{
-			ResponseWriter: w,
-
-			index: index,
-
-			code: http.StatusOK,
-
-			minSize: minSize,
-		}
-		defer gw.Close()
-
-		var rw http.ResponseWriter = gw
-
-		c, cok := w.(http.CloseNotifier)
-		hj, hok := w.(http.Hijacker)
-		p, pok := w.(http.Pusher)
-
-		switch {
-		case cok && hok:
-			rw = &closeNotifyHijackResponseWriter{gw, c, hj}
-		case cok && pok:
-			rw = &closeNotifyPusherResponseWriter{gw, c, p}
-		case cok:
-			rw = &closeNotifyResponseWriter{gw, c}
-		case hok:
-			rw = &hijackResponseWriter{gw, hj}
-		case pok:
-			rw = &pusherResponseWriter{gw, p}
-		}
-
-		h.ServeHTTP(rw, r)
-	}), nil
+		index:   poolIndex(level),
+		minSize: minSize,
+	}, nil
 }
 
 type responseWriterFlusher interface {
