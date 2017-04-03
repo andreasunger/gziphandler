@@ -45,11 +45,11 @@ func addLevelPool(level int) {
 	}
 }
 
-// gzipResponseWriter provides an http.ResponseWriter interface, which gzips
-// bytes before writing them to the underlying response. This doesn't close the
-// writers, so don't forget to do that.
+// responseWriter provides an http.ResponseWriter interface, which gzips
+// bytes before writing them to the underlying response. This doesn't close
+// the writers, so don't forget to do that.
 // It can be configured to skip response smaller than minSize.
-type gzipResponseWriter struct {
+type responseWriter struct {
 	http.ResponseWriter
 
 	index int // Index for gzipWriterPools.
@@ -62,7 +62,7 @@ type gzipResponseWriter struct {
 }
 
 // Write appends data to the gzip writer.
-func (w *gzipResponseWriter) Write(b []byte) (int, error) {
+func (w *responseWriter) Write(b []byte) (int, error) {
 	h := w.Header()
 
 	// If content type is not set.
@@ -89,7 +89,7 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 }
 
 // startGzip initialize any GZIP specific informations.
-func (w *gzipResponseWriter) startGzip() error {
+func (w *responseWriter) startGzip() error {
 	h := w.Header()
 
 	// Set the GZIP header.
@@ -120,13 +120,13 @@ func (w *gzipResponseWriter) startGzip() error {
 }
 
 // WriteHeader just saves the response code until close or GZIP effective writes.
-func (w *gzipResponseWriter) WriteHeader(code int) {
+func (w *responseWriter) WriteHeader(code int) {
 	w.code = code
 }
 
 // init graps a new gzip writer from the gzipWriterPool and writes the correct
 // content encoding header.
-func (w *gzipResponseWriter) init() {
+func (w *responseWriter) init() {
 	// Bytes written during ServeHTTP are redirected to this gzip writer
 	// before being written to the underlying response.
 	gzw := gzipWriterPools[w.index].Get().(*gzip.Writer)
@@ -136,7 +136,7 @@ func (w *gzipResponseWriter) init() {
 }
 
 // Close will close the gzip.Writer and will put it back in the gzipWriterPool.
-func (w *gzipResponseWriter) Close() error {
+func (w *responseWriter) Close() error {
 	// Buffer not nil means the regular response must be returned.
 	if w.buf != nil {
 		w.ResponseWriter.WriteHeader(w.code)
@@ -163,7 +163,7 @@ func (w *gzipResponseWriter) Close() error {
 // Flush flushes the underlying *gzip.Writer and then the underlying
 // http.ResponseWriter if it is an http.Flusher. This makes GzipResponseWriter
 // an http.Flusher.
-func (w *gzipResponseWriter) Flush() {
+func (w *responseWriter) Flush() {
 	if w.gw != nil {
 		w.gw.Flush()
 	}
@@ -197,7 +197,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gw := &gzipResponseWriter{
+	gw := &responseWriter{
 		ResponseWriter: w,
 
 		index: h.index,
