@@ -74,10 +74,12 @@ type gzipResponseWriter struct {
 
 // Write appends data to the gzip writer.
 func (w *gzipResponseWriter) Write(b []byte) (int, error) {
+	h := w.Header()
+
 	// If content type is not set.
-	if _, ok := w.Header()[contentType]; !ok {
+	if _, ok := h[contentType]; !ok {
 		// It infer it from the uncompressed body.
-		w.Header().Set(contentType, http.DetectContentType(b))
+		h.Set(contentType, http.DetectContentType(b))
 	}
 
 	// GZIP responseWriter is initialized. Use the GZIP responseWriter.
@@ -103,13 +105,15 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 
 // startGzip initialize any GZIP specific informations.
 func (w *gzipResponseWriter) startGzip() (int, error) {
+	h := w.Header()
+
 	// Set the GZIP header.
-	w.Header().Set(contentEncoding, "gzip")
+	h.Set(contentEncoding, "gzip")
 
 	// if the Content-Length is already set, then calls to Write on gzip
 	// will fail to set the Content-Length header since its already set
 	// See: https://github.com/golang/go/issues/14975.
-	w.Header().Del(contentLength)
+	h.Del(contentLength)
 
 	// Write the header to gzip response.
 	w.writeHeader()
