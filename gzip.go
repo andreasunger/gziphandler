@@ -11,9 +11,6 @@ import (
 	"github.com/golang/gddo/httputil/header"
 )
 
-// defaultMinSize defines the minimum size to reach to enable compression.
-const defaultMinSize = 512
-
 // gzipWriterPools stores a sync.Pool for each compression level for reuse of
 // gzip.Writers. Use poolIndex to covert a compression level to an index into
 // gzipWriterPools.
@@ -206,8 +203,9 @@ func (w *gzipResponseWriter) Push(target string, opts *http.PushOptions) error {
 }
 
 // Gzip wraps an HTTP handler, to transparently gzip the response body if
-// the client supports it (via the Accept-Encoding header). This will compress at
-// the default compression level.
+// the client supports it (via the Accept-Encoding header). This will compress
+// at the default compression level. The resource will not be compressed unless
+// it exceeds 512 bytes.
 func Gzip(h http.Handler) http.Handler {
 	h, err := GzipWithLevel(h, gzip.DefaultCompression)
 	if err != nil {
@@ -219,9 +217,10 @@ func Gzip(h http.Handler) http.Handler {
 
 // GzipWithLevel wraps an HTTP handler, to transparently gzip the response
 // body if the client supports it (via the Accept-Encoding header). This will
-// compress at the given gzip compression level.
+// compress at the given gzip compression level. The resource will not be
+// compressed unless it exceeds 512 bytes.
 func GzipWithLevel(h http.Handler, level int) (http.Handler, error) {
-	return GzipWithLevelAndMinSize(h, level, defaultMinSize)
+	return GzipWithLevelAndMinSize(h, level, 512)
 }
 
 // GzipWithLevelAndMinSize wraps an HTTP handler, to transparently gzip the
