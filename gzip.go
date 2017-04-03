@@ -208,6 +208,17 @@ func (w *GzipResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 // verify Hijacker interface implementation
 var _ http.Hijacker = &GzipResponseWriter{}
 
+// Push initiates an HTTP/2 server push.
+// Push returns ErrNotSupported if the client has disabled push or if push
+// is not supported on the underlying connection.
+func (w *GzipResponseWriter) Push(target string, opts *http.PushOptions) error {
+	pusher, ok := w.ResponseWriter.(http.Pusher)
+	if ok && pusher != nil {
+		return pusher.Push(target, setAcceptEncodingForPushOptions(opts))
+	}
+	return http.ErrNotSupported
+}
+
 // MustNewGzipLevelHandler behaves just like NewGzipLevelHandler except that in
 // an error case it panics rather than returning an error.
 func MustNewGzipLevelHandler(level int) func(http.Handler) http.Handler {
@@ -332,4 +343,31 @@ func parseCoding(s string) (coding string, qvalue float64, err error) {
 	}
 
 	return
+}
+
+// setAcceptEncodingForPushOptions sets "Accept-Encoding" : "gzip" for PushOptions without overriding existing headers.
+func setAcceptEncodingForPushOptions(opts *http.PushOptions) *http.PushOptions {
+
+	if opts == nil {
+		opts = &http.PushOptions{
+			Header: http.Header{
+				acceptEncoding: []string{"gzip"},
+			},
+		}
+		return opts
+	}
+
+	if opts.Header == nil {
+		opts.Header = http.Header{
+			acceptEncoding: []string{"gzip"},
+		}
+		return opts
+	}
+
+	if encoding := opts.Header.Get(acceptEncoding); encoding == "" {
+		opts.Header.Add(acceptEncoding, "gzip")
+		return opts
+	}
+
+	return opts
 }
