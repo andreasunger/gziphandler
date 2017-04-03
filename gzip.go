@@ -255,8 +255,6 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 				ResponseWriter: w,
 				index:          index,
 				minSize:        minSize,
-
-				buf: []byte{},
 			}
 			defer gw.Close()
 
