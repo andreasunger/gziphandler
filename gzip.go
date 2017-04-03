@@ -266,8 +266,24 @@ func NewGzipLevelAndMinSize(level, minSize int) (func(http.Handler) http.Handler
 // the client supports it (via the Accept-Encoding header). This will compress at
 // the default compression level.
 func GzipHandler(h http.Handler) http.Handler {
-	wrapper, _ := NewGzipLevelHandler(gzip.DefaultCompression)
-	return wrapper(h)
+	h, err := GzipHandlerWithLevel(h, gzip.DefaultCompression)
+	if err != nil {
+		panic(err)
+	}
+
+	return h
+}
+
+// GzipHandlerWithLevel wraps an HTTP handler, to transparently gzip the response
+// body if the client supports it (via the Accept-Encoding header). This will compress
+// at the given gzip compression level.
+func GzipHandlerWithLevel(h http.Handler, level int) (http.Handler, error) {
+	wrapper, err := NewGzipLevelAndMinSize(level, DefaultMinSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return wrapper(h), nil
 }
 
 // acceptsGzip returns true if the given HTTP request indicates that it will
