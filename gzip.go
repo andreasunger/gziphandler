@@ -1,10 +1,8 @@
 package gziphandler
 
 import (
-	"bufio"
 	"compress/gzip"
 	"fmt"
-	"net"
 	"net/http"
 	"sync"
 
@@ -176,19 +174,6 @@ func (w *gzipResponseWriter) Flush() {
 	}
 }
 
-// Hijack implements http.Hijacker. If the underlying ResponseWriter is a
-// Hijacker, its Hijack method is returned. Otherwise an error is returned.
-func (w *gzipResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if hj, ok := w.ResponseWriter.(http.Hijacker); ok {
-		return hj.Hijack()
-	}
-
-	return nil, nil, fmt.Errorf("http.Hijacker interface is not supported")
-}
-
-// verify Hijacker interface implementation
-var _ http.Hijacker = &gzipResponseWriter{}
-
 // Push initiates an HTTP/2 server push.
 // Push returns ErrNotSupported if the client has disabled push or if push
 // is not supported on the underlying connection.
@@ -264,6 +249,21 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 		}
 		defer gw.Close()
 
-		h.ServeHTTP(gw, r)
+		var rw http.ResponseWriter = gw
+		if h, ok := w.(http.Hijacker); ok {
+			rw = &hijackResponseWriter{gw, h}
+		}
+
+		h.ServeHTTP(rw, r)
 	}), nil
+}
+
+type responseWriterFlusher interface {
+	http.ResponseWriter
+	http.Flusher
+}
+
+type hijackResponseWriter struct {
+	responseWriterFlusher
+	http.Hijacker
 }
