@@ -71,7 +71,7 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	// If content type is not set.
 	if _, ok := h["Content-Type"]; !ok {
 		// It infer it from the uncompressed body.
-		h.Set("Content-Type", http.DetectContentType(b))
+		h["Content-Type"] = []string{http.DetectContentType(b)}
 	}
 
 	// GZIP responseWriter is initialized. Use the GZIP responseWriter.
@@ -100,12 +100,12 @@ func (w *gzipResponseWriter) startGzip() (int, error) {
 	h := w.Header()
 
 	// Set the GZIP header.
-	h.Set("Content-Encoding", "gzip")
+	h["Content-Encoding"] = []string{"gzip"}
 
 	// if the Content-Length is already set, then calls to Write on gzip
 	// will fail to set the Content-Length header since its already set
 	// See: https://github.com/golang/go/issues/14975.
-	h.Del("Content-Length")
+	delete(h, "Content-Length")
 
 	// Write the header to gzip response.
 	w.writeHeader()
@@ -240,7 +240,8 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 	index := poolIndex(level)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Vary", "Accept-Encoding")
+		hdr := w.Header()
+		hdr["Vary"] = append(hdr["Vary"], "Accept-Encoding")
 
 		var acceptsGzip bool
 		for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
@@ -286,8 +287,8 @@ func setAcceptEncodingForPushOptions(opts *http.PushOptions) *http.PushOptions {
 		return opts
 	}
 
-	if encoding := opts.Header.Get("Accept-Encoding"); encoding == "" {
-		opts.Header.Add("Accept-Encoding", "gzip")
+	if ae := opts.Header["Accept-Encoding"]; len(ae) == 0 || ae[0] == "" {
+		opts.Header["Accept-Encoding"] = append(opts.Header["Accept-Encoding"], "gzip")
 		return opts
 	}
 
