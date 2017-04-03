@@ -219,16 +219,6 @@ func (w *GzipResponseWriter) Push(target string, opts *http.PushOptions) error {
 	return http.ErrNotSupported
 }
 
-// NewGzipLevelHandler returns a wrapper function (often known as middleware)
-// which can be used to wrap an HTTP handler to transparently gzip the response
-// body if the client supports it (via the Accept-Encoding header). Responses will
-// be encoded at the given gzip compression level. An error will be returned only
-// if an invalid gzip compression level is given, so if one can ensure the level
-// is valid, the returned error can be safely ignored.
-func NewGzipLevelHandler(level int) (func(http.Handler) http.Handler, error) {
-	return NewGzipLevelAndMinSize(level, DefaultMinSize)
-}
-
 // NewGzipLevelAndMinSize behave as NewGzipLevelHandler except it let the caller
 // specify the minimum size before compression.
 func NewGzipLevelAndMinSize(level, minSize int) (func(http.Handler) http.Handler, error) {

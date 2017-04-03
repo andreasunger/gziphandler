@@ -88,15 +88,16 @@ func TestNewGzipLevelHandler(t *testing.T) {
 	})
 
 	for lvl := gzip.BestSpeed; lvl <= gzip.BestCompression; lvl++ {
-		wrapper, err := NewGzipLevelHandler(lvl)
-		if !assert.Nil(t, err, "NewGzipLevleHandler returned error for level:", lvl) {
-			continue
-		}
-
 		req, _ := http.NewRequest("GET", "/whatever", nil)
 		req.Header.Set("Accept-Encoding", "gzip")
 		resp := httptest.NewRecorder()
-		wrapper(handler).ServeHTTP(resp, req)
+
+		h, err := GzipHandlerWithLevel(handler, lvl)
+		if !assert.Nil(t, err, "GzipHandlerWithLevel returned error for level:", lvl) {
+			continue
+		}
+
+		h.ServeHTTP(resp, req)
 		res := resp.Result()
 
 		assert.Equal(t, 200, res.StatusCode)
@@ -106,12 +107,12 @@ func TestNewGzipLevelHandler(t *testing.T) {
 	}
 }
 
-func TestNewGzipLevelHandlerReturnsErrorForInvalidLevels(t *testing.T) {
+func TestGzipHandlerWithLevelReturnsErrorForInvalidLevels(t *testing.T) {
 	var err error
-	_, err = NewGzipLevelHandler(-42)
+	_, err = GzipHandlerWithLevel(nil, -42)
 	assert.NotNil(t, err)
 
-	_, err = NewGzipLevelHandler(42)
+	_, err = GzipHandlerWithLevel(nil, 42)
 	assert.NotNil(t, err)
 }
 
