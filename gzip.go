@@ -20,6 +20,7 @@ func init() {
 	for i := gzip.BestSpeed; i <= gzip.BestCompression; i++ {
 		addLevelPool(i)
 	}
+
 	addLevelPool(gzip.DefaultCompression)
 }
 
@@ -30,6 +31,7 @@ func poolIndex(level int) int {
 	if level == gzip.DefaultCompression {
 		return gzip.BestCompression - gzip.BestSpeed + 1
 	}
+
 	return level - gzip.BestSpeed
 }
 
@@ -52,6 +54,7 @@ func addLevelPool(level int) {
 // It can be configured to skip response smaller than minSize.
 type gzipResponseWriter struct {
 	http.ResponseWriter
+
 	index int // Index for gzipWriterPools.
 	gw    *gzip.Writer
 
@@ -129,6 +132,7 @@ func (w *gzipResponseWriter) writeHeader() {
 	if w.code == 0 {
 		w.code = http.StatusOK
 	}
+
 	w.ResponseWriter.WriteHeader(w.code)
 }
 
@@ -139,6 +143,7 @@ func (w *gzipResponseWriter) init() {
 	// before being written to the underlying response.
 	gzw := gzipWriterPools[w.index].Get().(*gzip.Writer)
 	gzw.Reset(w.ResponseWriter)
+
 	w.gw = gzw
 }
 
@@ -147,11 +152,10 @@ func (w *gzipResponseWriter) Close() error {
 	// Buffer not nil means the regular response must be returned.
 	if w.buf != nil {
 		w.writeHeader()
+
 		// Make the write into the regular response.
-		_, writeErr := w.ResponseWriter.Write(w.buf)
-		// Returns the error if any at write.
-		if writeErr != nil {
-			return fmt.Errorf("gziphandler: write to regular responseWriter at close gets error: %q", writeErr.Error())
+		if _, err := w.ResponseWriter.Write(w.buf); err != nil {
+			return err
 		}
 	}
 
@@ -161,8 +165,10 @@ func (w *gzipResponseWriter) Close() error {
 	}
 
 	err := w.gw.Close()
+
 	gzipWriterPools[w.index].Put(w.gw)
 	w.gw = nil
+
 	return err
 }
 
@@ -185,6 +191,7 @@ func (w *gzipResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hj, ok := w.ResponseWriter.(http.Hijacker); ok {
 		return hj.Hijack()
 	}
+
 	return nil, nil, fmt.Errorf("http.Hijacker interface is not supported")
 }
 
@@ -195,10 +202,10 @@ var _ http.Hijacker = &gzipResponseWriter{}
 // Push returns ErrNotSupported if the client has disabled push or if push
 // is not supported on the underlying connection.
 func (w *gzipResponseWriter) Push(target string, opts *http.PushOptions) error {
-	pusher, ok := w.ResponseWriter.(http.Pusher)
-	if ok && pusher != nil {
-		return pusher.Push(target, setAcceptEncodingForPushOptions(opts))
+	if p, ok := w.ResponseWriter.(http.Pusher); ok && p != nil {
+		return p.Push(target, setAcceptEncodingForPushOptions(opts))
 	}
+
 	return http.ErrNotSupported
 }
 
@@ -253,8 +260,10 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 		if acceptsGzip {
 			gw := &gzipResponseWriter{
 				ResponseWriter: w,
-				index:          index,
-				minSize:        minSize,
+
+				index: index,
+
+				minSize: minSize,
 			}
 			defer gw.Close()
 
@@ -267,26 +276,20 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 
 // setAcceptEncodingForPushOptions sets "Accept-Encoding" : "gzip" for PushOptions without overriding existing headers.
 func setAcceptEncodingForPushOptions(opts *http.PushOptions) *http.PushOptions {
-
 	if opts == nil {
-		opts = &http.PushOptions{
+		return &http.PushOptions{
 			Header: http.Header{
 				"Accept-Encoding": []string{"gzip"},
 			},
 		}
-		return opts
 	}
 
 	if opts.Header == nil {
 		opts.Header = http.Header{
 			"Accept-Encoding": []string{"gzip"},
 		}
-		return opts
-	}
-
-	if ae := opts.Header["Accept-Encoding"]; len(ae) == 0 || ae[0] == "" {
+	} else if ae := opts.Header["Accept-Encoding"]; len(ae) == 0 || ae[0] == "" {
 		opts.Header["Accept-Encoding"] = append(opts.Header["Accept-Encoding"], "gzip")
-		return opts
 	}
 
 	return opts
