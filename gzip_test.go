@@ -194,7 +194,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 			w.Write(resp)
 			w.Write(resp)
 		},
-	), gzip.DefaultCompression, 12)
+	), gzip.DefaultCompression, 13)
 
 	// Run a test with size smaller than the limit
 	b := bytes.NewBufferString("test")
