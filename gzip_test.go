@@ -115,16 +115,6 @@ func TestNewGzipLevelHandlerReturnsErrorForInvalidLevels(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestMustNewGzipLevelHandlerWillPanic(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("panic was not called")
-		}
-	}()
-
-	_ = MustNewGzipLevelHandler(-42)
-}
-
 func TestGzipHandlerNoBody(t *testing.T) {
 	tests := []struct {
 		statusCode      int

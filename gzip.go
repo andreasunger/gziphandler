@@ -219,16 +219,6 @@ func (w *GzipResponseWriter) Push(target string, opts *http.PushOptions) error {
 	return http.ErrNotSupported
 }
 
-// MustNewGzipLevelHandler behaves just like NewGzipLevelHandler except that in
-// an error case it panics rather than returning an error.
-func MustNewGzipLevelHandler(level int) func(http.Handler) http.Handler {
-	wrap, err := NewGzipLevelHandler(level)
-	if err != nil {
-		panic(err)
-	}
-	return wrap
-}
-
 // NewGzipLevelHandler returns a wrapper function (often known as middleware)
 // which can be used to wrap an HTTP handler to transparently gzip the response
 // body if the client supports it (via the Accept-Encoding header). Responses will
