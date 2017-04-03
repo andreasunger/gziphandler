@@ -194,7 +194,7 @@ var _ http.Hijacker = &gzipResponseWriter{}
 // is not supported on the underlying connection.
 func (w *gzipResponseWriter) Push(target string, opts *http.PushOptions) error {
 	if p, ok := w.ResponseWriter.(http.Pusher); ok && p != nil {
-		return p.Push(target, setAcceptEncodingForPushOptions(opts))
+		return p.Push(target, opts)
 	}
 
 	return http.ErrNotSupported
@@ -266,25 +266,4 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 
 		h.ServeHTTP(gw, r)
 	}), nil
-}
-
-// setAcceptEncodingForPushOptions sets "Accept-Encoding" : "gzip" for PushOptions without overriding existing headers.
-func setAcceptEncodingForPushOptions(opts *http.PushOptions) *http.PushOptions {
-	if opts == nil {
-		return &http.PushOptions{
-			Header: http.Header{
-				"Accept-Encoding": []string{"gzip"},
-			},
-		}
-	}
-
-	if opts.Header == nil {
-		opts.Header = http.Header{
-			"Accept-Encoding": []string{"gzip"},
-		}
-	} else if ae := opts.Header["Accept-Encoding"]; len(ae) == 0 || ae[0] == "" {
-		opts.Header["Accept-Encoding"] = append(opts.Header["Accept-Encoding"], "gzip")
-	}
-
-	return opts
 }
