@@ -22,10 +22,10 @@ const (
 type codings map[string]float64
 
 const (
-	// DefaultQValue is the default qvalue to assign to an encoding if no explicit qvalue is set.
+	// defaultQValue is the default qvalue to assign to an encoding if no explicit qvalue is set.
 	// This is actually kind of ambiguous in RFC 2616, so hopefully it's correct.
 	// The examples seem to indicate that it is.
-	DefaultQValue = 1.0
+	defaultQValue = 1.0
 
 	// DefaultMinSize defines the minimum size to reach to enable compression.
 	// It's 512 bytes.
@@ -325,7 +325,7 @@ func parseEncodings(s string) (codings, error) {
 func parseCoding(s string) (coding string, qvalue float64, err error) {
 	for n, part := range strings.Split(s, ";") {
 		part = strings.TrimSpace(part)
-		qvalue = DefaultQValue
+		qvalue = defaultQValue
 
 		if n == 0 {
 			coding = strings.ToLower(part)
