@@ -82,19 +82,20 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 		return n, err
 	}
 
-	// Save the write into a buffer for later use in GZIP responseWriter (if content is long enough) or at close with regular responseWriter.
-	w.buf = append(w.buf, b...)
-
 	// If the global writes are bigger than the minSize, compression is enable.
-	if w.bytesWritten+len(b) > w.minSize {
-		return w.startGzip()
+	if w.bytesWritten+len(b) < w.minSize {
+		// Save the write into a buffer for later use in GZIP responseWriter (if content is long enough) or at close with regular responseWriter.
+		w.buf = append(w.buf, b...)
+		return len(b), nil
+	} else if err := w.startGzip(); err != nil {
+		return 0, err
+	} else {
+		return w.gw.Write(b)
 	}
-
-	return len(b), nil
 }
 
 // startGzip initialize any GZIP specific informations.
-func (w *gzipResponseWriter) startGzip() (int, error) {
+func (w *gzipResponseWriter) startGzip() error {
 	h := w.Header()
 
 	// Set the GZIP header.
@@ -111,13 +112,17 @@ func (w *gzipResponseWriter) startGzip() (int, error) {
 	// Initialize the GZIP response.
 	w.init()
 
+	if w.buf == nil {
+		return nil
+	}
+
 	// Flush the buffer into the gzip response.
-	n, err := w.gw.Write(w.buf)
+	_, err := w.gw.Write(w.buf)
 	// Empty the buffer.
 	w.buf = nil
 
 	// Return the numbers of bytes written and the error if any.
-	return n, err
+	return err
 }
 
 // WriteHeader just saves the response code until close or GZIP effective writes.
