@@ -239,9 +239,21 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 		defer gw.Close()
 
 		var rw http.ResponseWriter = gw
-		if h, ok := w.(http.Hijacker); ok {
-			rw = &hijackResponseWriter{gw, h}
-		} else if p, ok := w.(http.Pusher); ok {
+
+		c, cok := w.(http.CloseNotifier)
+		hj, hok := w.(http.Hijacker)
+		p, pok := w.(http.Pusher)
+
+		switch {
+		case cok && hok:
+			rw = &closeNotifyHijackResponseWriter{gw, c, hj}
+		case cok && pok:
+			rw = &closeNotifyPusherResponseWriter{gw, c, p}
+		case cok:
+			rw = &closeNotifyResponseWriter{gw, c}
+		case hok:
+			rw = &hijackResponseWriter{gw, hj}
+		case pok:
 			rw = &pusherResponseWriter{gw, p}
 		}
 
@@ -254,6 +266,11 @@ type responseWriterFlusher interface {
 	http.Flusher
 }
 
+type closeNotifyResponseWriter struct {
+	responseWriterFlusher
+	http.CloseNotifier
+}
+
 type hijackResponseWriter struct {
 	responseWriterFlusher
 	http.Hijacker
@@ -261,5 +278,17 @@ type hijackResponseWriter struct {
 
 type pusherResponseWriter struct {
 	responseWriterFlusher
+	http.Pusher
+}
+
+type closeNotifyHijackResponseWriter struct {
+	responseWriterFlusher
+	http.CloseNotifier
+	http.Hijacker
+}
+
+type closeNotifyPusherResponseWriter struct {
+	responseWriterFlusher
+	http.CloseNotifier
 	http.Pusher
 }
