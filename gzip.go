@@ -8,45 +8,6 @@ import (
 	"github.com/golang/gddo/httputil/header"
 )
 
-// gzipWriterPools stores a sync.Pool for each compression
-// level for reuse of gzip.Writers. Use poolIndex to covert
-// a compression level to an index into gzipWriterPools.
-var gzipWriterPools [gzip.BestCompression - gzip.BestSpeed + 2]*sync.Pool
-
-func init() {
-	for i := gzip.BestSpeed; i <= gzip.BestCompression; i++ {
-		addLevelPool(i)
-	}
-
-	addLevelPool(gzip.DefaultCompression)
-}
-
-// poolIndex maps a compression level to its index into
-// gzipWriterPools. It assumes that level is a valid gzip
-// compression level.
-func poolIndex(level int) int {
-	// gzip.DefaultCompression == -1, so we need to
-	// treat it special.
-	if level == gzip.DefaultCompression {
-		return gzip.BestCompression - gzip.BestSpeed + 1
-	}
-
-	return level - gzip.BestSpeed
-}
-
-func addLevelPool(level int) {
-	gzipWriterPools[poolIndex(level)] = &sync.Pool{
-		New: func() interface{} {
-			w, err := gzip.NewWriterLevel(nil, level)
-			if err != nil {
-				panic(err)
-			}
-
-			return w
-		},
-	}
-}
-
 // responseWriter provides an http.ResponseWriter interface,
 // which gzips bytes before writing them to the underlying
 // response. This doesn't close the writers, so don't forget
@@ -55,8 +16,7 @@ func addLevelPool(level int) {
 type responseWriter struct {
 	http.ResponseWriter
 
-	// Index for gzipWriterPools.
-	index int
+	pool *sync.Pool
 
 	gw *gzip.Writer
 
@@ -149,7 +109,7 @@ func (w *responseWriter) init() {
 	// Bytes written during ServeHTTP are redirected to
 	// this gzip writer before being written to the
 	// underlying response.
-	gzw := gzipWriterPools[w.index].Get().(*gzip.Writer)
+	gzw := w.pool.Get().(*gzip.Writer)
 	gzw.Reset(w.ResponseWriter)
 
 	w.gw = gzw
@@ -177,7 +137,7 @@ func (w *responseWriter) Close() error {
 
 	err := w.gw.Close()
 
-	gzipWriterPools[w.index].Put(w.gw)
+	w.pool.Put(w.gw)
 	w.gw = nil
 
 	return err
@@ -199,7 +159,8 @@ func (w *responseWriter) Flush() {
 type handler struct {
 	http.Handler
 
-	index   int
+	pool *sync.Pool
+
 	minSize int
 }
 
@@ -223,7 +184,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gw := &responseWriter{
 		ResponseWriter: w,
 
-		index: h.index,
+		pool: h.pool,
 
 		code: http.StatusOK,
 
@@ -289,7 +250,17 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) http.Handler {
 	return &handler{
 		Handler: h,
 
-		index:   poolIndex(level),
+		pool: &sync.Pool{
+			New: func() interface{} {
+				w, err := gzip.NewWriterLevel(nil, level)
+				if err != nil {
+					panic(err)
+				}
+
+				return w
+			},
+		},
+
 		minSize: minSize,
 	}
 }
