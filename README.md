@@ -19,7 +19,7 @@ package main
 import (
 	"io"
 	"net/http"
-	"github.com/NYTimes/gziphandler"
+	"github.com/tmthrgd/gziphandler"
 )
 
 func main() {
@@ -48,5 +48,5 @@ The docs can be found at [godoc.org] [docs], as usual.
 
 
 
-[docs]:     https://godoc.org/github.com/nytimes/gziphandler
-[license]:  https://github.com/nytimes/gziphandler/blob/master/LICENSE.md
+[docs]:     https://godoc.org/github.com/tmthrgd/gziphandler
+[license]:  https://github.com/tmthrgd/gziphandler/blob/master/LICENSE.md
