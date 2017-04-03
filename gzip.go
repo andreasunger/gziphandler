@@ -27,9 +27,9 @@ const (
 	// The examples seem to indicate that it is.
 	defaultQValue = 1.0
 
-	// DefaultMinSize defines the minimum size to reach to enable compression.
+	// defaultMinSize defines the minimum size to reach to enable compression.
 	// It's 512 bytes.
-	DefaultMinSize = 512
+	defaultMinSize = 512
 )
 
 // gzipWriterPools stores a sync.Pool for each compression level for reuse of
@@ -266,7 +266,7 @@ func GzipHandler(h http.Handler) http.Handler {
 // body if the client supports it (via the Accept-Encoding header). This will compress
 // at the given gzip compression level.
 func GzipHandlerWithLevel(h http.Handler, level int) (http.Handler, error) {
-	return GzipHandlerWithLevelAndMinSize(h, level, DefaultMinSize)
+	return GzipHandlerWithLevelAndMinSize(h, level, defaultMinSize)
 }
 
 // GzipHandlerWithLevelAndMinSize wraps an HTTP handler, to transparently gzip the
