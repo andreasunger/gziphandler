@@ -92,7 +92,7 @@ func TestNewGzipLevelHandler(t *testing.T) {
 		req.Header.Set("Accept-Encoding", "gzip")
 		resp := httptest.NewRecorder()
 
-		h, err := GzipHandlerWithLevel(handler, lvl)
+		h, err := GzipWithLevel(handler, lvl)
 		if !assert.Nil(t, err, "GzipHandlerWithLevel returned error for level:", lvl) {
 			continue
 		}
@@ -109,10 +109,10 @@ func TestNewGzipLevelHandler(t *testing.T) {
 
 func TestGzipHandlerWithLevelReturnsErrorForInvalidLevels(t *testing.T) {
 	var err error
-	_, err = GzipHandlerWithLevel(nil, -42)
+	_, err = GzipWithLevel(nil, -42)
 	assert.NotNil(t, err)
 
-	_, err = GzipHandlerWithLevel(nil, 42)
+	_, err = GzipWithLevel(nil, 42)
 	assert.NotNil(t, err)
 }
 
@@ -130,7 +130,7 @@ func TestGzipHandlerNoBody(t *testing.T) {
 	}
 
 	for num, test := range tests {
-		handler := GzipHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(test.statusCode)
 		}))
 
@@ -162,7 +162,7 @@ func TestGzipHandlerNoBody(t *testing.T) {
 
 func TestGzipHandlerContentLength(t *testing.T) {
 	b := []byte(testBody)
-	handler := GzipHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", strconv.Itoa(len(b)))
 		w.Write(b)
 	}))
@@ -207,7 +207,7 @@ func TestGzipHandlerContentLength(t *testing.T) {
 }
 
 func TestGzipHandlerMinSize(t *testing.T) {
-	handler, _ := GzipHandlerWithLevelAndMinSize(http.HandlerFunc(
+	handler, _ := GzipWithLevelAndMinSize(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			resp, _ := ioutil.ReadAll(r.Body)
 			w.Write(resp)
@@ -245,7 +245,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 		return
 	}
 
-	_, errorMinNegative := GzipHandlerWithLevelAndMinSize(nil, gzip.DefaultCompression, -10)
+	_, errorMinNegative := GzipWithLevelAndMinSize(nil, gzip.DefaultCompression, -10)
 	if errorMinNegative == nil {
 		t.Error("The minimum size it negative and the function returns no error")
 		return
@@ -257,7 +257,7 @@ func TestGzipDoubleClose(t *testing.T) {
 	// aren't added back by double close
 	addLevelPool(gzip.DefaultCompression)
 
-	handler := GzipHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// call close here and it'll get called again interally by
 		// NewGzipLevelHandler's handler defer
 		w.Write([]byte("test"))
@@ -278,7 +278,7 @@ func TestGzipDoubleClose(t *testing.T) {
 }
 
 func TestStatusCodes(t *testing.T) {
-	handler := GzipHandler(http.NotFoundHandler())
+	handler := Gzip(http.NotFoundHandler())
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
@@ -345,7 +345,7 @@ func runBenchmark(b *testing.B, req *http.Request, handler http.Handler) {
 }
 
 func newTestHandler(body string) http.Handler {
-	return GzipHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, body)
 	}))
 }

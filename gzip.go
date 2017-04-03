@@ -250,11 +250,11 @@ func newGzipLevelAndMinSize(level, minSize int) (func(http.Handler) http.Handler
 	}, nil
 }
 
-// GzipHandler wraps an HTTP handler, to transparently gzip the response body if
+// Gzip wraps an HTTP handler, to transparently gzip the response body if
 // the client supports it (via the Accept-Encoding header). This will compress at
 // the default compression level.
-func GzipHandler(h http.Handler) http.Handler {
-	h, err := GzipHandlerWithLevel(h, gzip.DefaultCompression)
+func Gzip(h http.Handler) http.Handler {
+	h, err := GzipWithLevel(h, gzip.DefaultCompression)
 	if err != nil {
 		panic(err)
 	}
@@ -262,18 +262,18 @@ func GzipHandler(h http.Handler) http.Handler {
 	return h
 }
 
-// GzipHandlerWithLevel wraps an HTTP handler, to transparently gzip the response
-// body if the client supports it (via the Accept-Encoding header). This will compress
-// at the given gzip compression level.
-func GzipHandlerWithLevel(h http.Handler, level int) (http.Handler, error) {
-	return GzipHandlerWithLevelAndMinSize(h, level, defaultMinSize)
+// GzipWithLevel wraps an HTTP handler, to transparently gzip the response
+// body if the client supports it (via the Accept-Encoding header). This will
+// compress at the given gzip compression level.
+func GzipWithLevel(h http.Handler, level int) (http.Handler, error) {
+	return GzipWithLevelAndMinSize(h, level, defaultMinSize)
 }
 
-// GzipHandlerWithLevelAndMinSize wraps an HTTP handler, to transparently gzip the
-// response body if the client supports it (via the Accept-Encoding header). This will
-// compress at the given gzip compression level. The resource will not be compressed
-// unless it is larger than minSize.
-func GzipHandlerWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, error) {
+// GzipWithLevelAndMinSize wraps an HTTP handler, to transparently gzip the
+// response body if the client supports it (via the Accept-Encoding header).
+// This will compress at the given gzip compression level. The resource will
+// not be compressed unless it is larger than minSize.
+func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, error) {
 	wrapper, err := newGzipLevelAndMinSize(level, minSize)
 	if err != nil {
 		return nil, err
