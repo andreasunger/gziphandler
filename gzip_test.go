@@ -205,7 +205,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	handler.ServeHTTP(resp1, req1)
 	res1 := resp1.Result()
 
-	if res1.Header.Get(contentEncoding) == "gzip" {
+	if res1.Header.Get("Content-Encoding") == "gzip" {
 		t.Errorf("The response is compress and should not")
 		return
 	}
@@ -219,7 +219,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	handler.ServeHTTP(resp2, req2)
 	res2 := resp2.Result()
 
-	if res2.Header.Get(contentEncoding) != "gzip" {
+	if res2.Header.Get("Content-Encoding") != "gzip" {
 		t.Errorf("The response is not compress and should")
 		return
 	}
@@ -371,8 +371,8 @@ func TestSetAcceptEncodingForPushOptionsWithHeaders(t *testing.T) {
 
 	opts = &http.PushOptions{
 		Header: http.Header{
-			"User-Agent":   []string{"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.98 Safari/537.36"},
-			acceptEncoding: []string{"deflate"},
+			"User-Agent":      []string{"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.98 Safari/537.36"},
+			"Accept-Encoding": []string{"deflate"},
 		},
 	}
 	opts = setAcceptEncodingForPushOptions(opts)

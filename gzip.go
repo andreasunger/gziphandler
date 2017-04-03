@@ -11,14 +11,6 @@ import (
 	"github.com/golang/gddo/httputil/header"
 )
 
-const (
-	vary            = "Vary"
-	acceptEncoding  = "Accept-Encoding"
-	contentEncoding = "Content-Encoding"
-	contentType     = "Content-Type"
-	contentLength   = "Content-Length"
-)
-
 // defaultMinSize defines the minimum size to reach to enable compression.
 const defaultMinSize = 512
 
@@ -77,9 +69,9 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	h := w.Header()
 
 	// If content type is not set.
-	if _, ok := h[contentType]; !ok {
+	if _, ok := h["Content-Type"]; !ok {
 		// It infer it from the uncompressed body.
-		h.Set(contentType, http.DetectContentType(b))
+		h.Set("Content-Type", http.DetectContentType(b))
 	}
 
 	// GZIP responseWriter is initialized. Use the GZIP responseWriter.
@@ -108,12 +100,12 @@ func (w *gzipResponseWriter) startGzip() (int, error) {
 	h := w.Header()
 
 	// Set the GZIP header.
-	h.Set(contentEncoding, "gzip")
+	h.Set("Content-Encoding", "gzip")
 
 	// if the Content-Length is already set, then calls to Write on gzip
 	// will fail to set the Content-Length header since its already set
 	// See: https://github.com/golang/go/issues/14975.
-	h.Del(contentLength)
+	h.Del("Content-Length")
 
 	// Write the header to gzip response.
 	w.writeHeader()
@@ -248,10 +240,10 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 	index := poolIndex(level)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add(vary, acceptEncoding)
+		w.Header().Add("Vary", "Accept-Encoding")
 
 		var acceptsGzip bool
-		for _, spec := range header.ParseAccept(r.Header, acceptEncoding) {
+		for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
 			if spec.Value == "gzip" && spec.Q > 0 {
 				acceptsGzip = true
 				break
@@ -281,7 +273,7 @@ func setAcceptEncodingForPushOptions(opts *http.PushOptions) *http.PushOptions {
 	if opts == nil {
 		opts = &http.PushOptions{
 			Header: http.Header{
-				acceptEncoding: []string{"gzip"},
+				"Accept-Encoding": []string{"gzip"},
 			},
 		}
 		return opts
@@ -289,13 +281,13 @@ func setAcceptEncodingForPushOptions(opts *http.PushOptions) *http.PushOptions {
 
 	if opts.Header == nil {
 		opts.Header = http.Header{
-			acceptEncoding: []string{"gzip"},
+			"Accept-Encoding": []string{"gzip"},
 		}
 		return opts
 	}
 
-	if encoding := opts.Header.Get(acceptEncoding); encoding == "" {
-		opts.Header.Add(acceptEncoding, "gzip")
+	if encoding := opts.Header.Get("Accept-Encoding"); encoding == "" {
+		opts.Header.Add("Accept-Encoding", "gzip")
 		return opts
 	}
 
