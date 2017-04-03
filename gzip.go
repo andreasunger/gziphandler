@@ -104,7 +104,7 @@ func (w *gzipResponseWriter) startGzip() error {
 	delete(h, "Content-Length")
 
 	// Write the header to gzip response.
-	w.writeHeader()
+	w.ResponseWriter.WriteHeader(w.code)
 
 	// Initialize the GZIP response.
 	w.init()
@@ -127,15 +127,6 @@ func (w *gzipResponseWriter) WriteHeader(code int) {
 	w.code = code
 }
 
-// writeHeader uses the saved code to send it to the ResponseWriter.
-func (w *gzipResponseWriter) writeHeader() {
-	if w.code == 0 {
-		w.code = http.StatusOK
-	}
-
-	w.ResponseWriter.WriteHeader(w.code)
-}
-
 // init graps a new gzip writer from the gzipWriterPool and writes the correct
 // content encoding header.
 func (w *gzipResponseWriter) init() {
@@ -151,7 +142,7 @@ func (w *gzipResponseWriter) init() {
 func (w *gzipResponseWriter) Close() error {
 	// Buffer not nil means the regular response must be returned.
 	if w.buf != nil {
-		w.writeHeader()
+		w.ResponseWriter.WriteHeader(w.code)
 
 		// Make the write into the regular response.
 		if _, err := w.ResponseWriter.Write(w.buf); err != nil {
@@ -262,6 +253,8 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 				ResponseWriter: w,
 
 				index: index,
+
+				code: http.StatusOK,
 
 				minSize: minSize,
 			}
