@@ -174,17 +174,6 @@ func (w *gzipResponseWriter) Flush() {
 	}
 }
 
-// Push initiates an HTTP/2 server push.
-// Push returns ErrNotSupported if the client has disabled push or if push
-// is not supported on the underlying connection.
-func (w *gzipResponseWriter) Push(target string, opts *http.PushOptions) error {
-	if p, ok := w.ResponseWriter.(http.Pusher); ok && p != nil {
-		return p.Push(target, opts)
-	}
-
-	return http.ErrNotSupported
-}
-
 // Gzip wraps an HTTP handler, to transparently gzip the response body if
 // the client supports it (via the Accept-Encoding header). This will compress
 // at the default compression level. The resource will not be compressed unless
@@ -252,6 +241,8 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, 
 		var rw http.ResponseWriter = gw
 		if h, ok := w.(http.Hijacker); ok {
 			rw = &hijackResponseWriter{gw, h}
+		} else if p, ok := w.(http.Pusher); ok {
+			rw = &pusherResponseWriter{gw, p}
 		}
 
 		h.ServeHTTP(rw, r)
@@ -266,4 +257,9 @@ type responseWriterFlusher interface {
 type hijackResponseWriter struct {
 	responseWriterFlusher
 	http.Hijacker
+}
+
+type pusherResponseWriter struct {
+	responseWriterFlusher
+	http.Pusher
 }
