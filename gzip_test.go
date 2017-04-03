@@ -207,8 +207,7 @@ func TestGzipHandlerContentLength(t *testing.T) {
 }
 
 func TestGzipHandlerMinSize(t *testing.T) {
-	wrapper, _ := NewGzipLevelAndMinSize(gzip.DefaultCompression, 12)
-	handler := wrapper(http.HandlerFunc(
+	handler, _ := GzipHandlerWithLevelAndMinSize(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			resp, _ := ioutil.ReadAll(r.Body)
 			w.Write(resp)
@@ -216,7 +215,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 			w.Write(resp)
 			w.Write(resp)
 		},
-	))
+	), gzip.DefaultCompression, 12)
 
 	// Run a test with size smaller than the limit
 	b := bytes.NewBufferString("test")
@@ -246,7 +245,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 		return
 	}
 
-	_, errorMinNegative := NewGzipLevelAndMinSize(gzip.DefaultCompression, -10)
+	_, errorMinNegative := GzipHandlerWithLevelAndMinSize(nil, gzip.DefaultCompression, -10)
 	if errorMinNegative == nil {
 		t.Error("The minimum size it negative and the function returns no error")
 		return

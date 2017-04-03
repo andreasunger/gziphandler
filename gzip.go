@@ -219,9 +219,7 @@ func (w *GzipResponseWriter) Push(target string, opts *http.PushOptions) error {
 	return http.ErrNotSupported
 }
 
-// NewGzipLevelAndMinSize behave as NewGzipLevelHandler except it let the caller
-// specify the minimum size before compression.
-func NewGzipLevelAndMinSize(level, minSize int) (func(http.Handler) http.Handler, error) {
+func newGzipLevelAndMinSize(level, minSize int) (func(http.Handler) http.Handler, error) {
 	if level != gzip.DefaultCompression && (level < gzip.BestSpeed || level > gzip.BestCompression) {
 		return nil, fmt.Errorf("invalid compression level requested: %d", level)
 	}
@@ -276,7 +274,7 @@ func GzipHandlerWithLevel(h http.Handler, level int) (http.Handler, error) {
 // compress at the given gzip compression level. The resource will not be compressed
 // unless it is larger than minSize.
 func GzipHandlerWithLevelAndMinSize(h http.Handler, level, minSize int) (http.Handler, error) {
-	wrapper, err := NewGzipLevelAndMinSize(level, minSize)
+	wrapper, err := newGzipLevelAndMinSize(level, minSize)
 	if err != nil {
 		return nil, err
 	}
