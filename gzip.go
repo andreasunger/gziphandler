@@ -35,14 +35,6 @@ type responseWriter struct {
 
 // Write appends data to the gzip writer.
 func (w *responseWriter) Write(b []byte) (int, error) {
-	h := w.Header()
-
-	// If content type is not set.
-	if _, ok := h["Content-Type"]; !ok {
-		// It infer it from the uncompressed body.
-		h["Content-Type"] = []string{http.DetectContentType(b)}
-	}
-
 	// GZIP responseWriter is initialized. Use the GZIP
 	// responseWriter.
 	if w.gw != nil {
@@ -58,11 +50,15 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 		// responseWriter.
 		w.buf = append(w.buf, b...)
 		return len(b), nil
-	} else if err := w.startGzip(); err != nil {
-		return 0, err
-	} else {
-		return w.gw.Write(b)
 	}
+
+	w.inferContentType(b)
+
+	if err := w.startGzip(); err != nil {
+		return 0, err
+	}
+
+	return w.gw.Write(b)
 }
 
 // startGzip initialize any GZIP specific informations.
@@ -99,6 +95,29 @@ func (w *responseWriter) startGzip() error {
 	w.buf = nil
 
 	return err
+}
+
+func (w *responseWriter) inferContentType(b []byte) {
+	h := w.Header()
+
+	// If content type is not set.
+	if _, ok := h["Content-Type"]; ok {
+		return
+	}
+
+	if len(w.buf) != 0 {
+		const sniffLen = 512
+		if len(w.buf) >= sniffLen {
+			b = w.buf
+		} else if len(w.buf)+len(b) > sniffLen {
+			b = append(w.buf, b[:sniffLen-len(w.buf)]...)
+		} else {
+			b = append(w.buf, b...)
+		}
+	}
+
+	// It infer it from the uncompressed body.
+	h["Content-Type"] = []string{http.DetectContentType(b)}
 }
 
 // WriteHeader just saves the response code until close or
