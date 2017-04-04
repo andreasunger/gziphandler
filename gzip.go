@@ -33,6 +33,12 @@ type responseWriter struct {
 	buf []byte
 }
 
+// WriteHeader just saves the response code until close or
+// GZIP effective writes.
+func (w *responseWriter) WriteHeader(code int) {
+	w.code = code
+}
+
 // Write appends data to the gzip writer.
 func (w *responseWriter) Write(b []byte) (int, error) {
 	// GZIP responseWriter is initialized. Use the GZIP
@@ -118,12 +124,6 @@ func (w *responseWriter) inferContentType(b []byte) {
 
 	// It infer it from the uncompressed body.
 	h["Content-Type"] = []string{http.DetectContentType(b)}
-}
-
-// WriteHeader just saves the response code until close or
-// GZIP effective writes.
-func (w *responseWriter) WriteHeader(code int) {
-	w.code = code
 }
 
 // Close will close the gzip.Writer and will put it back in
