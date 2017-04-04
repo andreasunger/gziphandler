@@ -258,6 +258,26 @@ func TestStatusCodes(t *testing.T) {
 	}
 }
 
+func TestInferContentType(t *testing.T) {
+	handler := GzipWithLevelAndMinSize(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, "<!doc")
+		io.WriteString(w, "type html>")
+	}), gzip.DefaultCompression, len("<!doctype html"))
+
+	req1, _ := http.NewRequest("GET", "/whatever", nil)
+	req1.Header.Add("Accept-Encoding", "gzip")
+	resp1 := httptest.NewRecorder()
+	handler.ServeHTTP(resp1, req1)
+	res1 := resp1.Result()
+
+	const expect = "text/html; charset=utf-8"
+	if ct := res1.Header.Get("Content-Type"); ct != expect {
+		t.Error("Infering Content-Type failed for buffered response")
+		t.Logf("Expected: %s", expect)
+		t.Logf("Got:      %s", ct)
+	}
+}
+
 // --------------------------------------------------------------------
 
 func BenchmarkGzipHandler_S2k(b *testing.B)   { benchmark(b, false, 2048) }
