@@ -87,7 +87,8 @@ func (w *responseWriter) startGzip() error {
 	w.gw = w.pool.Get().(*gzip.Writer)
 	w.gw.Reset(w.ResponseWriter)
 
-	if w.buf == nil {
+	if len(w.buf) == 0 {
+		w.buf = nil
 		return nil
 	}
 
@@ -180,6 +181,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		code: http.StatusOK,
 
 		minSize: h.minSize,
+
+		buf: []byte{},
 	}
 	defer gw.Close()
 
