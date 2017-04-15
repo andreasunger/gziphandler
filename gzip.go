@@ -3,6 +3,7 @@ package gziphandler
 import (
 	"compress/gzip"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/golang/gddo/httputil/header"
@@ -183,8 +184,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var acceptsGzip bool
 	for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
-		if spec.Value == "gzip" && spec.Q > 0 {
-			acceptsGzip = true
+		if len(spec.Value) != len("gzip") {
+			continue
+		}
+
+		if spec.Value == "gzip" || strings.ToLower(spec.Value) == "gzip" {
+			acceptsGzip = spec.Q > 0
 			break
 		}
 	}
