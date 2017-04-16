@@ -9,6 +9,17 @@ import (
 	"github.com/golang/gddo/httputil/header"
 )
 
+// These constants are copied from the gzip package, so
+// that code that imports "github.com/tmthrgd/gziphandler"
+// does not also have to import "compress/gzip".
+const (
+	NoCompression      = gzip.NoCompression
+	BestSpeed          = gzip.BestSpeed
+	BestCompression    = gzip.BestCompression
+	DefaultCompression = gzip.DefaultCompression
+	HuffmanOnly        = gzip.HuffmanOnly
+)
+
 // responseWriter provides an http.ResponseWriter interface,
 // which gzips bytes before writing them to the underlying
 // response. This doesn't close the writers, so don't forget
