@@ -270,14 +270,28 @@ func GzipWithLevel(h http.Handler, level int) http.Handler {
 // resource will not be compressed unless it is larger than
 // minSize.
 func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) http.Handler {
-	if level != gzip.DefaultCompression && (level < gzip.BestSpeed || level > gzip.BestCompression) {
+	return GzipWithOptions(h, &Options{level, minSize})
+}
+
+// GzipWithOptions wraps an HTTP handler, to transparently
+// gzip the response body if the client supports it (via
+// the Accept-Encoding header). The provided Options struct
+// allows the behaviour of this package to be customised.
+func GzipWithOptions(h http.Handler, opts *Options) http.Handler {
+	if opts == nil {
+		panic("GzipWithOptions used with nil *Options argument")
+	}
+
+	if opts.Level != gzip.DefaultCompression &&
+		(opts.Level < gzip.BestSpeed || opts.Level > gzip.BestCompression) {
 		panic("invalid compression level requested")
 	}
 
-	if minSize < 0 {
+	if opts.MinSize < 0 {
 		panic("minimum size must be more than zero")
 	}
 
+	level := opts.Level
 	return &handler{
 		Handler: h,
 
@@ -292,8 +306,27 @@ func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) http.Handler {
 			},
 		},
 
-		minSize: minSize,
+		minSize: opts.MinSize,
 	}
+}
+
+// Options is a struct that defines options to customise
+// the behaviour of the gzip handler.
+type Options struct {
+	// Level is the gzip compression level to apply.
+	// See the level constants defined in this package.
+	//
+	// The default value adds gzip framing but performs
+	// no compression.
+	Level int
+
+	// MinSize specifies the minimum size of a response
+	// before it will be compressed. Responses smaller
+	// than this value will not be compressed.
+	//
+	// If MinSize is zero, all responses will be
+	// compressed.
+	MinSize int
 }
 
 type responseWriterFlusher interface {
