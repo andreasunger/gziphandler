@@ -9,6 +9,15 @@ import (
 	"github.com/golang/gddo/httputil/header"
 )
 
+const defaultMinSize = 512
+
+var bufferPool = &sync.Pool{
+	New: func() interface{} {
+		buf := make([]byte, 0, defaultMinSize)
+		return &buf
+	},
+}
+
 // These constants are copied from the gzip package, so
 // that code that imports "github.com/tmthrgd/gziphandler"
 // does not also have to import "compress/gzip".
@@ -37,7 +46,7 @@ type responseWriter struct {
 
 	// Holds the first part of the write before reaching
 	// the minSize or the end of the write.
-	buf []byte
+	buf *[]byte
 }
 
 // WriteHeader just saves the response code until close or
@@ -56,12 +65,12 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 	// If the global writes are bigger than the minSize,
 	// compression is enable.
-	if len(w.buf)+len(b) < w.h.minSize {
+	if buf := *w.buf; len(buf)+len(b) < w.h.minSize {
 		// Save the write into a buffer for later
 		// use in GZIP responseWriter (if content
 		// is long enough) or at close with regular
 		// responseWriter.
-		w.buf = append(w.buf, b...)
+		*w.buf = append(buf, b...)
 		return len(b), nil
 	}
 
@@ -96,15 +105,17 @@ func (w *responseWriter) startGzip() error {
 	w.gw = w.h.pool.Get().(*gzip.Writer)
 	w.gw.Reset(w.ResponseWriter)
 
-	if len(w.buf) == 0 {
-		w.buf = nil
-		return nil
+	buf := *w.buf
+
+	var err error
+	if len(buf) != 0 {
+		// Flush the buffer into the gzip response.
+		_, err = w.gw.Write(buf)
 	}
 
-	// Flush the buffer into the gzip response.
-	_, err := w.gw.Write(w.buf)
-
 	// Empty the buffer.
+	*w.buf = buf[:0]
+	bufferPool.Put(w.buf)
 	w.buf = nil
 
 	return err
@@ -118,14 +129,14 @@ func (w *responseWriter) inferContentType(b []byte) {
 		return
 	}
 
-	if len(w.buf) != 0 {
+	if buf := *w.buf; len(buf) != 0 {
 		const sniffLen = 512
-		if len(w.buf) >= sniffLen {
-			b = w.buf
-		} else if len(w.buf)+len(b) > sniffLen {
-			b = append(w.buf, b[:sniffLen-len(w.buf)]...)
+		if len(buf) >= sniffLen {
+			b = buf
+		} else if len(buf)+len(b) > sniffLen {
+			b = append(buf, b[:sniffLen-len(buf)]...)
 		} else {
-			b = append(w.buf, b...)
+			b = append(buf, b...)
 		}
 	}
 
@@ -143,8 +154,16 @@ func (w *responseWriter) Close() error {
 
 		w.ResponseWriter.WriteHeader(w.code)
 
+		buf := *w.buf
+
 		// Make the write into the regular response.
-		if _, err := w.ResponseWriter.Write(w.buf); err != nil {
+		_, err := w.ResponseWriter.Write(buf)
+
+		*w.buf = buf[:0]
+		bufferPool.Put(w.buf)
+		w.buf = nil
+
+		if err != nil {
 			return err
 		}
 	}
@@ -212,7 +231,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		code: http.StatusOK,
 
-		buf: []byte{},
+		buf: bufferPool.Get().(*[]byte),
 	}
 	defer gw.Close()
 
@@ -253,7 +272,7 @@ func Gzip(h http.Handler) http.Handler {
 // given gzip compression level. The resource will not be
 // compressed unless it exceeds 512 bytes.
 func GzipWithLevel(h http.Handler, level int) http.Handler {
-	return GzipWithLevelAndMinSize(h, level, 512)
+	return GzipWithLevelAndMinSize(h, level, defaultMinSize)
 }
 
 // GzipWithLevelAndMinSize wraps an HTTP handler, to
