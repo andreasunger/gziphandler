@@ -28,17 +28,12 @@ const (
 type responseWriter struct {
 	http.ResponseWriter
 
-	pool *sync.Pool
+	h *handler
 
 	gw *gzip.Writer
 
 	// Saves the WriteHeader value.
 	code int
-
-	// Specified the minimum response size to gzip. If
-	// the response length is bigger than this value,
-	// it is compressed.
-	minSize int
 
 	// Holds the first part of the write before reaching
 	// the minSize or the end of the write.
@@ -61,7 +56,7 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 	// If the global writes are bigger than the minSize,
 	// compression is enable.
-	if len(w.buf)+len(b) < w.minSize {
+	if len(w.buf)+len(b) < w.h.minSize {
 		// Save the write into a buffer for later
 		// use in GZIP responseWriter (if content
 		// is long enough) or at close with regular
@@ -98,7 +93,7 @@ func (w *responseWriter) startGzip() error {
 	// Bytes written during ServeHTTP are redirected to
 	// this gzip writer before being written to the
 	// underlying response.
-	w.gw = w.pool.Get().(*gzip.Writer)
+	w.gw = w.h.pool.Get().(*gzip.Writer)
 	w.gw.Reset(w.ResponseWriter)
 
 	if len(w.buf) == 0 {
@@ -162,7 +157,7 @@ func (w *responseWriter) Close() error {
 
 	err := w.gw.Close()
 
-	w.pool.Put(w.gw)
+	w.h.pool.Put(w.gw)
 	w.gw = nil
 
 	return err
@@ -213,11 +208,9 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gw := &responseWriter{
 		ResponseWriter: w,
 
-		pool: h.pool,
+		h: h,
 
 		code: http.StatusOK,
-
-		minSize: h.minSize,
 
 		buf: []byte{},
 	}
