@@ -313,6 +313,76 @@ func TestInferContentTypeUncompressed(t *testing.T) {
 	}
 }
 
+func TestPassThroughBigWrite(t *testing.T) {
+	handler := GzipWithOptions(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			resp, _ := ioutil.ReadAll(r.Body)
+			w.Write(resp)
+		},
+	), &Options{
+		Level:       DefaultCompression,
+		MinSize:     10,
+		CanCompress: func(http.Header) bool { return false },
+	})
+
+	// Run a test with size bigger than the limit
+	b := bytes.NewBufferString("01234567890123")
+
+	req, _ := http.NewRequest("GET", "/whatever", b)
+	req.Header.Add("Accept-Encoding", "gzip")
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+	res1 := resp.Result()
+
+	if res1.Header.Get("Content-Encoding") == "gzip" {
+		t.Errorf("The response is compress and should not")
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Unexpected error reading response body: %v", err)
+	}
+
+	assert.Equal(t, string(body), "01234567890123")
+}
+
+func TestPassThroughSmallWrites(t *testing.T) {
+	handler := GzipWithOptions(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			resp, _ := ioutil.ReadAll(r.Body)
+			w.Write(resp)
+			w.Write(resp)
+			w.Write(resp)
+		},
+	), &Options{
+		Level:       DefaultCompression,
+		MinSize:     10,
+		CanCompress: func(http.Header) bool { return false },
+	})
+
+	// Run a test with size smaller than the limit
+	b := bytes.NewBufferString("012345678")
+
+	req, _ := http.NewRequest("GET", "/whatever", b)
+	req.Header.Add("Accept-Encoding", "gzip")
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+	res1 := resp.Result()
+
+	if res1.Header.Get("Content-Encoding") == "gzip" {
+		t.Errorf("The response is compress and should not")
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Unexpected error reading response body: %v", err)
+	}
+
+	assert.Equal(t, string(body), "012345678012345678012345678")
+}
+
 // --------------------------------------------------------------------
 
 func BenchmarkGzipHandler_S2k(b *testing.B)   { benchmark(b, false, 2048) }

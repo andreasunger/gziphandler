@@ -29,6 +29,14 @@ const (
 	HuffmanOnly        = gzip.HuffmanOnly
 )
 
+type writerState int
+
+const (
+	writerStateInitial writerState = iota
+	writerStatePassThrough
+	writerStateCompress
+)
+
 // responseWriter provides an http.ResponseWriter interface,
 // which gzips bytes before writing them to the underlying
 // response. This doesn't close the writers, so don't forget
@@ -47,6 +55,8 @@ type responseWriter struct {
 	// Holds the first part of the write before reaching
 	// the minSize or the end of the write.
 	buf *[]byte
+
+	state writerState
 }
 
 // WriteHeader just saves the response code until close or
@@ -57,6 +67,10 @@ func (w *responseWriter) WriteHeader(code int) {
 
 // Write appends data to the gzip writer.
 func (w *responseWriter) Write(b []byte) (int, error) {
+	if w.state == writerStatePassThrough {
+		return w.ResponseWriter.Write(b)
+	}
+
 	// GZIP responseWriter is initialized. Use the GZIP
 	// responseWriter.
 	if w.gw != nil {
@@ -74,13 +88,52 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 		return len(b), nil
 	}
 
-	w.inferContentType(b)
+	// If the writer is in the initial state,
+	// infer the content type and determine if the
+	// data should be compressed.
+	// After this if block, the writer is either in
+	// the 'pass-through' or 'compress' state.
+	if w.state == writerStateInitial {
+		w.inferContentType(b)
+		if w.h.canCompress != nil && !w.h.canCompress(w.Header()) {
+			if err := w.startPassThrough(); err != nil {
+				return 0, err
+			}
+			return w.ResponseWriter.Write(b)
+		}
+		w.state = writerStateCompress
+	}
 
 	if err := w.startGzip(); err != nil {
 		return 0, err
 	}
 
 	return w.gw.Write(b)
+}
+
+// startPassThrough transition the writer to the 'pass-through' state.
+// This method is called when the data stream should not be compressed.
+func (w *responseWriter) startPassThrough() error {
+	// Write the header to regular response.
+	w.ResponseWriter.WriteHeader(w.code)
+
+	buf := *w.buf
+
+	var err error
+	if len(buf) != 0 {
+		// Flush the buffer into the regular response.
+		_, err = w.ResponseWriter.Write(buf)
+	}
+
+	// Empty the buffer.
+	*w.buf = buf[:0]
+	bufferPool.Put(w.buf)
+	w.buf = nil
+
+	// Transition writer state to writerStatePassThrough
+	w.state = writerStatePassThrough
+
+	return err
 }
 
 // startGzip initialize any GZIP specific informations.
@@ -201,6 +254,8 @@ type handler struct {
 	pool *sync.Pool
 
 	minSize int
+
+	canCompress func(http.Header) bool
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -232,6 +287,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		code: http.StatusOK,
 
 		buf: bufferPool.Get().(*[]byte),
+
+		state: writerStateInitial,
 	}
 	defer gw.Close()
 
@@ -282,7 +339,10 @@ func GzipWithLevel(h http.Handler, level int) http.Handler {
 // resource will not be compressed unless it is larger than
 // minSize.
 func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) http.Handler {
-	return GzipWithOptions(h, &Options{level, minSize})
+	return GzipWithOptions(h, &Options{
+		Level:   level,
+		MinSize: minSize,
+	})
 }
 
 // GzipWithOptions wraps an HTTP handler, to transparently
@@ -319,6 +379,8 @@ func GzipWithOptions(h http.Handler, opts *Options) http.Handler {
 		},
 
 		minSize: opts.MinSize,
+
+		canCompress: opts.CanCompress,
 	}
 }
 
@@ -339,6 +401,12 @@ type Options struct {
 	// If MinSize is zero, all responses will be
 	// compressed.
 	MinSize int
+
+	// CanCompress can be set to a function to conditionally
+	// compress the data stream. Usually, the function will
+	// read the Content-Type header to determine whether
+	// it makes sense to compress the data.
+	CanCompress func(http.Header) bool
 }
 
 type responseWriterFlusher interface {
